@@ -1,19 +1,43 @@
-# Deploying revtunnel
+# How revtunnel is installed and runs
 
-TODO: where it runs (host, service, URL).
+There is no service of our own to deploy: the scripts are copied to the machines and run there (see the
+README's quick start). This page lists what they install and change.
 
-## First-time setup
+## Windows PC (`revtunnel-windows.ps1`)
 
-TODO: step by step, with every command.
+- `C:\ProgramData\revtunnel\` (SYSTEM + Administrators only): `setup.log` (installer output), and per
+  tunnel `NAME\`: `tunnel.json` (settings), `id_ed25519[.pub]` (the tunnel's key), `known_hosts`,
+  `tunnel.ps1` (the reconnect loop), `tunnel.log`.
+- Scheduled task **revtunnel NAME**: runs `tunnel.ps1` as SYSTEM at startup (restarted if it crashes).
+- SSH tunnels (port 22): the OpenSSH Server Windows capability; `sshd` set to automatic; a block marked
+  `# revtunnel: begin/end` at the top of `C:\ProgramData\ssh\sshd_config` (ListenAddress 127.0.0.1,
+  PasswordAuthentication no); PowerShell as the SSH default shell (`HKLM\SOFTWARE\OpenSSH\DefaultShell`);
+  `administrators_authorized_keys`.
+- Extras, when chosen: power plan (no sleep/hibernate on AC); disconnected VPN connections and disabled
+  VPN/TUN adapters (setup prints how to re-enable each); Python via the Python install manager.
+- A server-step text file on the Desktop while the tunnel isn't up yet.
 
-## Shipping a change
+## Linux PC (`revtunnel-linux.sh`)
 
-TODO: how a change gets from `main` to live, and how to roll back.
+- `/etc/revtunnel/NAME/` (root only): `tunnel.conf`, `id_ed25519[.pub]`, `known_hosts`, `tunnel.sh`,
+  `server-step.txt` (until the tunnel is up). Log: `/var/log/revtunnel-NAME.log`.
+- systemd service **revtunnel-NAME** (enabled; restarted on failure).
+- SSH tunnels: the openssh server package if missing (settings untouched); keys in the login user's
+  `~/.ssh/authorized_keys`.
+- Extras, when chosen: `systemctl mask` of the sleep targets; VPN connections (NetworkManager) and
+  VPN/TUN interfaces brought down.
 
-## Configuration
+## Server (`revtunnel-server.sh`)
 
-TODO: the settings it needs (names only, never the values) and where they live.
+- A user (default `tunnel`) with no shell and no password; one line per PC in its
+  `~/.ssh/authorized_keys`.
+- `/etc/ssh/sshd_config.d/40-revtunnel.conf` (keepalives: a dropped tunnel frees its port within a
+  minute) and `41-revtunnel-USER.conf` (that user: remote forwards only). Needs sshd_config to include
+  `sshd_config.d` (the default on current distributions). sshd is reloaded, not restarted.
 
-## Troubleshooting
+## Changing the scripts
 
-TODO: logs, health checks, common problems.
+1. Edit, then check: `bash -n *.sh`; for the `.ps1`, parse it with Windows PowerShell 5.1 (see CLAUDE.md).
+2. Try the changed flow on a real machine (scripted with `-Yes` / `--yes`, and interactively).
+3. Update the README / these docs and CHANGELOG in the same commit, then push. Users download the new
+   files with Raw; re-running setup picks up the changes.
