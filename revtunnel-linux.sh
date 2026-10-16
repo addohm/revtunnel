@@ -180,9 +180,8 @@ server_step() {
         "Do this on the SERVER ($HOST), not on this PC. It lets this PC's tunnel in."
         ""
         "1. Log in to the server as root (or as a user who can use sudo)."
-        "2. Put revtunnel-server.sh on the server, e.g. from the computer you downloaded it to:"
-        "     scp revtunnel-server.sh root@$HOST:"
-        "   (get it from the revtunnel repository on GitHub: open the file, then the Raw button)"
+        "2. Download the server script there:"
+        "     curl -fsSLO https://raw.githubusercontent.com/addohm/revtunnel/main/revtunnel-server.sh"
         "3. On the server, run this one line:"
         "     sudo bash revtunnel-server.sh '$pub' $RPORT $TUSER"
         "   or just \"sudo bash revtunnel-server.sh\" and paste this PC's key when it asks."
@@ -416,8 +415,15 @@ UNIT
     shown=
     while [ "$STATE" != up ]; do
         if [[ "$DETAIL" == *"server step"* ]]; then
-            [ -n "$shown" ] || say "That's expected the first time: the server doesn't know this PC yet."
-            server_step; shown=1
+            if [ -z "$shown" ]; then
+                say "That's expected the first time: the server doesn't know this PC yet."
+                server_step; shown=1
+            else  # once is enough; then say what to check
+                pub="$(cat "$KEY.pub")"; blob="$(cut -d' ' -f2 <<<"$pub")"
+                bad "The server still doesn't accept this PC's tunnel key (it ends in ...${blob: -8})."
+                say "       On the server, 'sudo bash revtunnel-server.sh --list' shows the key it has for port $RPORT"
+                say "       (named ${pub##* }). Same port and user on both sides? Option 4 of the re-run menu shows the step again."
+            fi
         else
             bad "The tunnel is not up: $DETAIL"
         fi
@@ -437,10 +443,10 @@ UNIT
         lu="${LOGIN_USER:-${SUDO_USER:-USER}}"
         lines+=("To log in to this PC: first log in to the server, then run there:"
                 "    ssh -p $RPORT $lu@127.0.0.1"
-                "Or in one go from your own computer:"
+                "Or in one go from your own computer (not this PC), if it can log in to the server as root:"
                 "    ssh -J root@$HOST -p $RPORT $lu@127.0.0.1")
     else
-        lines+=("To reach port $LPORT of this PC from your own computer, open a forward through the server:"
+        lines+=("To reach port $LPORT of this PC from your own computer (not this PC), open a forward through the server:"
                 "    ssh -L $LPORT:127.0.0.1:$RPORT root@$HOST"
                 "and, while that runs, connect your program to localhost:$LPORT.")
     fi

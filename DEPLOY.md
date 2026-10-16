@@ -31,9 +31,11 @@ README's quick start). This page lists what they install and change.
 
 - A user (default `tunnel`) with no shell and no password; one line per PC in its
   `~/.ssh/authorized_keys`.
-- `/etc/ssh/sshd_config.d/40-revtunnel.conf` (keepalives: a dropped tunnel frees its port within a
-  minute) and `41-revtunnel-USER.conf` (that user: remote forwards only). Needs sshd_config to include
-  `sshd_config.d` (the default on current distributions). sshd is reloaded, not restarted.
+- `/etc/ssh/sshd_config.d/41-revtunnel-USER.conf`: a `Match User` block for that user only: remote
+  forwards only, and keepalives (15 s × 4) so a dropped tunnel frees its port within a minute. Other
+  logins keep the server's own settings. Needs sshd_config to include `sshd_config.d` (the default on
+  current distributions). sshd is reloaded, not restarted. (Earlier versions also wrote
+  `40-revtunnel.conf` with the keepalives for every login; the script now removes it.)
 
 ## Changing the scripts
 

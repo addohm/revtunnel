@@ -26,19 +26,21 @@ you --ssh--> server, port 2222 (its own 127.0.0.1 only) ==tunnel==> PC, port 22
 You need: the PC, a server with a fixed address that the PC can reach (as root or with sudo), and about
 ten minutes. Each step says **where** it happens.
 
-### 1. On your computer: download the files
+### 1. Get the files
 
-Open each file on GitHub and use the **Raw** button (or the download button), then save it. Saving the
-normal GitHub page gives you an HTML file that won't run.
-
-- Windows PC: `revtunnel-windows.cmd` **and** `revtunnel-windows.ps1`, into the same folder on the PC.
-- Linux PC: `revtunnel-linux.sh`, onto the PC.
-- The server: `revtunnel-server.sh`, onto the server, e.g. `scp revtunnel-server.sh root@SERVER:`
+- **Windows PC:** `revtunnel-windows.cmd` **and** `revtunnel-windows.ps1`, in the same folder. Either
+  `git clone https://github.com/addohm/revtunnel.git`, or open each file on GitHub and use the **Raw**
+  button (or the download button), then save it. Saving the normal GitHub page gives you an HTML file
+  that won't run.
+- **Linux PC:** `curl -fsSLO https://raw.githubusercontent.com/addohm/revtunnel/main/revtunnel-linux.sh`
+- **The server:** nothing yet; the PC's setup tells you when (step 3).
 
 ### 2. On the PC: run the setup
 
-- **Windows:** double-click `revtunnel-windows.cmd` and allow it to make changes. If Windows says it
-  "protected your PC", choose **More info → Run anyway**. Setup continues in a new administrator window.
+- **Windows:** double-click `revtunnel-windows.cmd` (or run it from a PowerShell window) and allow it to
+  make changes. If Windows says it "protected your PC", choose **More info → Run anyway**. Setup continues
+  in a new administrator window. Running `revtunnel-windows.ps1` directly fails on a fresh Windows
+  ("running scripts is disabled"): always start the `.cmd`.
 - **Linux:** `sudo bash revtunnel-linux.sh`
 
 It goes step by step and explains each one. You'll be asked for:
@@ -47,7 +49,7 @@ It goes step by step and explains each one. You'll be asked for:
 |---|---|
 | Tunnel name | Enter (`main`), unless this PC gets several tunnels |
 | Port on this PC | Enter (22, SSH logins), or the port of the program to reach, e.g. 3389 for Remote Desktop |
-| Keys allowed to log in | The *public* SSH key of everyone who should log in (one line, starting `ssh-ed25519`). On their machine: `cat ~/.ssh/id_ed25519.pub`. Enter on an empty line when done |
+| Keys allowed to log in | The *public* SSH key of everyone who should log in to this PC (one line, starting `ssh-ed25519`), e.g. from the server: `cat ~/.ssh/id_ed25519.pub` there. Enter on an empty line when done |
 | Extras | Keep awake, turn VPNs off, install Python (Windows): yes to what an unattended PC needs |
 | Server address, SSH port, user | The server's IP or name; Enter for 22 and `tunnel` |
 | Port on the server | Enter (2222) for the first PC; every PC on the same server needs its own (2223, ...) |
@@ -55,14 +57,21 @@ It goes step by step and explains each one. You'll be asked for:
 
 ### 3. On the server: let the PC in
 
-The first time, the PC stops with **ACTION NEEDED - on the SERVER** and shows one line to run there (also
+The first time, the PC stops with **ACTION NEEDED - on the SERVER** and shows what to run there (also
 saved in a text file on the PC's Desktop, or in `/etc/revtunnel/NAME/server-step.txt` on Linux):
 
 ```bash
+curl -fsSLO https://raw.githubusercontent.com/addohm/revtunnel/main/revtunnel-server.sh
 sudo bash revtunnel-server.sh 'ssh-ed25519 AAAA... revtunnel-main-MYPC' 2222 tunnel
 ```
 
 Or run `sudo bash revtunnel-server.sh` and paste the PC's key when it asks. It ends with **Done**.
+
+**Two kinds of key, don't mix them up:**
+- the PC's **tunnel key** (ends in `revtunnel-NAME-PCNAME`): made by the PC's setup, goes to the
+  **server** in this step. It lets the PC hold its tunnel, nothing else.
+- **login keys** (e.g. `~/.ssh/id_ed25519.pub` of a person or of the server): pasted **on the PC** in
+  step 2. They let someone log in to the PC through the tunnel.
 
 ### 4. On the PC: press Enter
 
@@ -76,6 +85,9 @@ ssh -p 2222 PC_USER@127.0.0.1                  # log in to the PC through the tu
 
 ssh -J root@SERVER -p 2222 PC_USER@127.0.0.1   # or both in one go from your own computer
 ```
+
+Run these from the server or from your own computer, never from the PC itself. The login to the PC needs a
+key added in step 2 (e.g. the server's own `~/.ssh/id_ed25519.pub`, for the first form).
 
 `PC_USER` is the user setup showed (on Windows, the account that ran it). Only the keys added in step 2
 work: passwords are off on Windows, and on Linux the PC's SSH settings are left as they were.
@@ -109,7 +121,8 @@ The PC's setup (and its status) translates the tunnel's log into plain language.
 
 | Status says | What to do |
 |---|---|
-| the server step is needed | step 3 is missing, or was done with another key, port or user |
+| the server step is needed | step 3 is missing, or was done with another key, port or user: `revtunnel-server.sh --list` on the server shows which key it has for each port |
+| Windows refused this PC's own tunnel key file | a permissions problem on the PC, not the server: run the setup again and choose "Go through the whole setup again" |
 | the server refused the port | the PC and the server disagree on the port; or wait a minute after a drop |
 | no answer from the server | wrong address or SSH port, or a firewall / the network blocks it |
 | nothing answers on that SSH port | right server, wrong SSH port |

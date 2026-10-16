@@ -52,12 +52,13 @@ README.md               user workflow (quick start marks WHERE each step happens
 1. Start from the latest: pull before changing anything.
 2. Make the change, then check it:
    - `bash -n revtunnel-linux.sh revtunnel-server.sh`
-   - the `.ps1` with **Windows PowerShell 5.1** on the Windows VM: `scp -q revtunnel-windows.ps1
-     mihomo-winvm:rt/` then parse it there with `[System.Management.Automation.Language.Parser]::ParseFile`.
+   - the `.ps1` with **Windows PowerShell 5.1** on the Windows VM: copy it to the VPS, from there to the
+     VM (`scp -P 2222 ... addohm@127.0.0.1:rt/`), then parse it there with
+     `[System.Management.Automation.Language.Parser]::ParseFile`.
    - try the changed flow for real: on the VM with a throwaway tunnel (`-Name rtX -LocalPort 3389
-     -RemotePort 229X -Server <test server> -Yes`; never port 22 there, and never touch the tunnel named
-     `mihomo-tester`, which is how we reach the VM), interactively via `ssh -tt` with piped answers, and on
-     the test server as both PC and server (`--server 127.0.0.1`). Remove throwaways on both sides after.
+     -RemotePort 229X -Server <VPS address> -Yes`; never port 22 there, and never touch the tunnel named
+     `main`, which is how we reach the VM), interactively via `ssh -tt` with piped answers, and on the VPS
+     as both PC and server (`--server 127.0.0.1`). Remove throwaways on both sides after.
 3. **Update the docs in the same commit.** Every change updates the docs it affects:
    - README.md: setup and usage
    - CHANGELOG.md: an entry under *Unreleased*
@@ -66,9 +67,13 @@ README.md               user workflow (quick start marks WHERE each step happens
    - this file: when the layout, workflow or conventions change
 4. Commit and push.
 
-Test machines (from the mihomo-proxy-server-tests workspace): `ssh mihomo-testserver` (Fedora VPS, root;
-the server side for the VM, user `tunnel`), `ssh mihomo-winvm` (Windows 11 VM in mainland China, user
-`addohm`, reached through its revtunnel tunnel on the test server). Keep their addresses out of the repo.
+Test machines (since 2026-10-16; the earlier Fedora test server is deleted, never connect to its old
+address): the VPS `sgp-vps` (Ubuntu 24.04 in Singapore, root), a `/claude ssh` host of the
+mihomo-proxy-server-tests workspace: `/srv/claude/data/ssh/mihomo-proxy-server-tests/ssh sgp-vps '...'`
+(scp: `-F /srv/claude/data/ssh/mihomo-proxy-server-tests/config`). It is the server side for the Windows 11
+VM in mainland China (`DESKTOP-BJUBIRD`, user `addohm`), whose tunnel `main` is port 2222 there: from the
+VPS, `ssh -p 2222 addohm@127.0.0.1` (root's key `vps-sgp` is allowed on the VM). Keep addresses out of
+the repo.
 
 ## Conventions
 
@@ -76,8 +81,10 @@ the server side for the VM, user `tunnel`), `ssh mihomo-winvm` (Windows 11 VM in
   `??`, `?:`, `&&`; native stderr with `2>&1` under `$ErrorActionPreference = 'Stop'` throws (set it to
   `Continue` locally, see `Invoke-Logged`); empty native arguments vanish (use `Start-Process
   -ArgumentList` with a string, as for ssh-keygen); wrap results that may be one item in `@()`; use SIDs
-  (`*S-1-5-32-544`), never localised group names; ssh.exe as SYSTEM refuses a key owned or readable by
-  another account (set the owner to Administrators); `ssh -E` locks its log, so the loop logs through
+  (`*S-1-5-32-544`, SDDL `BA`/`SY`), never localised group names; ssh.exe as SYSTEM refuses a key owned
+  or readable by another account, and Windows gives the creator of a ProgramData folder an explicit
+  full-control entry that `icacls /grant:r` keeps, so `Protect` sets a whole SDDL ACL (owner BA, SY + BA
+  only, nothing inherited); `ssh -E` locks its log, so the loop logs through
   `cmd /c ... 2>>`.
 - `.sh`: bash, `set -euo pipefail`: a failing `$(...)` in an assignment exits, so end such commands with
   `|| true`; no `sed q` behind a pipe (SIGPIPE).

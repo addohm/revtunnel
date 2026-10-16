@@ -65,6 +65,17 @@ fi
 KEY="$(tr -d '\r' <<<"$KEY" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
 [[ "$KEY" =~ ^(ssh-|ecdsa-|sk-)[^\ ]+\ [A-Za-z0-9+/=]+(\ .*)?$ ]] ||
     fail "That is not an SSH public key. Copy the whole line from the PC, starting with ssh-ed25519, and put it in single quotes."
+if [[ "${KEY##* }" != revtunnel-* ]]; then
+    bad "This doesn't look like a PC's TUNNEL key: those end in revtunnel-NAME-PCNAME (this one: ${KEY##* })."
+    say "The tunnel key is the one the PC's setup shows under \"This PC's tunnel key\", not a personal key"
+    say "such as ~/.ssh/id_ed25519.pub. Keys for logging in to the PC are pasted on the PC, not here."
+    if [ -t 0 ]; then
+        read -r -p "    Use this key anyway? [y/N]: " a
+        [[ "${a,,}" == y* ]] || exit 1
+    else
+        exit 1
+    fi
+fi
 if [ -z "$PORT" ]; then
     read -r -p "    Port on this server for that PC (as set on the PC) [2222]: " PORT
     PORT="${PORT:-2222}"
@@ -89,12 +100,15 @@ ok "The PC's key may open port $PORT (on this server's 127.0.0.1 only)"
 
 grep -qiE '^\s*Include\s+/etc/ssh/sshd_config\.d/' /etc/ssh/sshd_config ||
     fail "This server's /etc/ssh/sshd_config has no 'Include /etc/ssh/sshd_config.d/*.conf' line. Add it at the top, then run this again."
-# keepalives free a dropped tunnel's port within a minute, so the PC can reconnect
-printf 'ClientAliveInterval 15\nClientAliveCountMax 4\n' > /etc/ssh/sshd_config.d/40-revtunnel.conf
-# The key option "port-forwarding" would also allow forwards INTO this server (-L), so sshd itself allows
-# this user remote forwards only. One file per user; a Match block ends with its file.
+# Only for this user: remote forwards only (the key option "port-forwarding" would also allow forwards INTO
+# this server, -L), and keepalives that free a dropped tunnel's port within a minute so the PC can
+# reconnect (other logins keep the server's own settings). One file per user; a Match block ends with its
+# file. Earlier versions set the keepalives for everyone in 40-revtunnel.conf.
+rm -f /etc/ssh/sshd_config.d/40-revtunnel.conf
 cat > "/etc/ssh/sshd_config.d/41-revtunnel-$TUSER.conf" <<CONF
 Match User $TUSER
+    ClientAliveInterval 15
+    ClientAliveCountMax 4
     AllowTcpForwarding remote
     X11Forwarding no
     AllowAgentForwarding no

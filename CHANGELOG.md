@@ -6,6 +6,24 @@ All notable changes to revtunnel. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Windows: the tunnel's key could be readable by the user who ran setup (Windows gives the creator of a
+  ProgramData folder full control, inherited by the key), so ssh.exe refused it and the server never
+  let the PC in. The folder and key now get a fixed SYSTEM + Administrators ACL. Status reports this as
+  a problem with the PC's key file instead of "the server step is needed" (2026-10-16, first fresh
+  install: Ubuntu VPS + Windows 11 PC).
+- Server: keepalives only for the tunnel user (a `Match User` block), no longer for every login; the old
+  `40-revtunnel.conf` is removed.
+
+### Changed
+
+- The server step downloads `revtunnel-server.sh` with one `curl` line (the repository is public).
+- The server script refuses a key that doesn't look like a PC's tunnel key (asks when run interactively).
+- The server step's banner shows once; later failed checks say what to compare (key ending, `--list`).
+- The Python question accepts `y` (3.13) and re-asks for anything that isn't a version.
+- The summary says to log in from the server or your own computer, not from the PC.
+
 ### Added
 
 - Standard docs: README, CLAUDE, CHANGELOG, DEPLOY and SECURITY (2026-10-16).

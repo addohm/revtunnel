@@ -77,9 +77,6 @@ $Root = Join-Path $env:ProgramData 'revtunnel'
 $SetupLog = "$Root\setup.log"
 $SshDir = "$env:SystemRoot\System32\OpenSSH"
 $AuthKeys = "$env:ProgramData\ssh\administrators_authorized_keys"
-# SIDs, not names: group names are localised (e.g. on Chinese Windows)
-$Admins = '*S-1-5-32-544'
-$System = '*S-1-5-18'
 $Line = '=' * 78
 
 function Say($text, $color = 'Gray') { Write-Host "    $text" -ForegroundColor $color }
@@ -151,6 +148,16 @@ function KeyLabel($k) {
     if ($f.Count -ge 3 -and $f[2]) { $f[2] } else { "$($f[0]) ...$($f[1].Substring([Math]::Max(0, $f[1].Length - 8)))" }
 }
 
+function Protect($path) {
+    # Exactly SYSTEM + Administrators, owned by Administrators, nothing inherited. icacls /grant:r keeps other
+    # accounts' entries (seen: the setup user's, inherited by the key), and ssh.exe refuses a key that any
+    # other account can read.
+    $dir = Test-Path $path -PathType Container
+    $sd = if ($dir) { New-Object Security.AccessControl.DirectorySecurity } else { New-Object Security.AccessControl.FileSecurity }
+    $sd.SetSecurityDescriptorSddlForm($(if ($dir) { 'O:BAD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)' } else { 'O:BAD:PAI(A;;FA;;;SY)(A;;FA;;;BA)' }))
+    Set-Acl -Path $path -AclObject $sd
+}
+
 function Read-Log($path) {
     # The tunnel keeps its log open; open it with sharing (Get-Content can't)
     if (-not (Test-Path $path)) { return '' }
@@ -160,6 +167,8 @@ function Read-Log($path) {
 
 # Plain-language meanings of ssh's messages, first match wins
 $Meanings = @(
+    # key-file problems first: ssh then also reports "Permission denied"
+    @('bad permissions|UNPROTECTED PRIVATE KEY', "Windows refused this PC's own tunnel key file because of its permissions (not a server problem): run setup again and choose 'Go through the whole setup again' to fix them."),
     @('Permission denied', "The server doesn't know this PC's tunnel key (yet): the server step is needed."),
     @('remote port forwarding failed', "The server refused the port: it's set up for another port for this key, or a tunnel that just dropped still holds it (it frees up within a minute)."),
     @('Could not resolve hostname', "The server's name wasn't found: check the address."),
@@ -167,7 +176,6 @@ $Meanings = @(
     @('timed out', "No answer from the server: check the address and port, or a firewall / the network blocks it."),
     @('Network is unreachable|No route to host', 'This PC has no network route to the server: check the internet connection.'),
     @('IDENTIFICATION HAS CHANGED|Host key verification failed', "The server's identity changed (e.g. it was rebuilt): re-run setup to trust it again."),
-    @('bad permissions|UNPROTECTED PRIVATE KEY', "Windows refused the tunnel's key file because of its permissions: re-run setup to fix them."),
     @('gave up after', 'The tunnel stopped retrying (the retry limit was reached): restart the PC or re-run setup.')
 )
 
@@ -244,9 +252,8 @@ function Write-ServerStep($p, $c, $pub) {
         "Do this on the SERVER ($($c.Host)), not on this PC. It lets this PC's tunnel in.",
         '',
         '1. Log in to the server as root (or as a user who can use sudo).',
-        '2. Put revtunnel-server.sh on the server, e.g. from the computer you downloaded it to:',
-        "     scp revtunnel-server.sh root@$($c.Host):",
-        '   (get it from the revtunnel repository on GitHub: open the file, then the Raw button)',
+        '2. Download the server script there:',
+        '     curl -fsSLO https://raw.githubusercontent.com/addohm/revtunnel/main/revtunnel-server.sh',
         '3. On the server, run this one line:',
         "     sudo bash revtunnel-server.sh '$pub' $($c.RemotePort) $($c.User)",
         '   or just "sudo bash revtunnel-server.sh" and paste this PC''s key when it asks.',
@@ -262,7 +269,7 @@ function Write-ServerStep($p, $c, $pub) {
 # ---- Status only / which tunnel ---------------------------------------------------------------------------
 
 New-Item -ItemType Directory -Force $Root | Out-Null
-icacls $Root /inheritance:r /grant:r "${System}:(OI)(CI)F" "${Admins}:(OI)(CI)F" | Out-Null
+Protect $Root
 
 Write-Host ''
 Write-Host 'revtunnel - reverse SSH tunnel from this PC to a server' -ForegroundColor Cyan
@@ -405,8 +412,7 @@ if ($doKeys) {
         Ok "Added: $(KeyLabel $k)"
     }
     if (Test-Path $AuthKeys) {
-        icacls $AuthKeys /setowner $Admins | Out-Null  # sshd wants it owned by Administrators or SYSTEM
-        icacls $AuthKeys /inheritance:r /grant:r "${System}:F" "${Admins}:F" | Out-Null
+        Protect $AuthKeys  # sshd wants it owned by Administrators or SYSTEM, and readable by nobody else
     }
     if ($have) { Ok "$($have.Count) key(s) may log in as $env:USERNAME" }
     else { Warn 'No keys yet, so nobody can log in. Re-run setup and choose "Allow another key" to add one.' }
@@ -450,7 +456,13 @@ if ($doExtras) {
 
     $wantPython = $Python
     if (-not $wantPython -and -not $Yes) {
-        $wantPython = (Read-Host '    Install Python? Type a version such as 3.13, or press Enter to skip').Trim()
+        while ($true) {
+            $wantPython = (Read-Host '    Install Python? Type a version such as 3.13 (or y for 3.13), or press Enter to skip').Trim()
+            if ($wantPython -match '^(y|yes)$') { $wantPython = '3.13' }
+            if ($wantPython -match '^(n|no)$') { $wantPython = '' }
+            if (-not $wantPython -or $wantPython -match '^\d+(\.\d+)*$') { break }
+            Warn 'Type a version number such as 3.13, y, or press Enter to skip.'
+        }
     }
     if ($wantPython) {
         Say "Installing Python $wantPython (details go to $SetupLog) ..."
@@ -504,11 +516,10 @@ if ($doServer) {
             -ArgumentList "-q -t ed25519 -N `"`" -C revtunnel-$Name-$env:COMPUTERNAME -f `"$($P.Key)`""
         if ($proc.ExitCode -ne 0) { throw 'ssh-keygen failed' }
     }
-    # ssh-keygen makes the user running this the key's owner; ssh.exe running as SYSTEM refuses a key that is
-    # owned or readable by another account, so hand it to Administrators with the folder's access only
-    icacls $P.Key /setowner $Admins | Out-Null
-    icacls $P.Key /reset | Out-Null
-    icacls "$($P.Key).pub" /reset | Out-Null
+    # ssh-keygen makes the user running this the key's owner; ssh.exe running as SYSTEM refuses that
+    Protect $P.Dir
+    Protect $P.Key
+    Protect "$($P.Key).pub"
     $pub = (Get-Content "$($P.Key).pub" -Raw).Trim()
     # trust the server's host key afresh (the server or its address may have changed)
     Remove-Item "$($P.Dir)\known_hosts" -ErrorAction SilentlyContinue
@@ -557,9 +568,16 @@ while ($true) {
     $shown = $false
     while ($s.State -ne 'up') {
         if (($s.State -in 'down', 'retrying') -and $s.Detail -match 'server step') {
-            if (-not $shown) { Say "That's expected the first time: the server doesn't know this PC yet." }
-            Write-ServerStep $P $c $pub
-            $shown = $true
+            if (-not $shown) {
+                Say "That's expected the first time: the server doesn't know this PC yet."
+                Write-ServerStep $P $c $pub
+                $shown = $true
+            } else {
+                # once is enough; then say what to check
+                Bad "The server still doesn't accept this PC's tunnel key (it ends in ...$($pub.Split(' ')[1].Substring($pub.Split(' ')[1].Length - 8)))."
+                Say "       On the server, 'sudo bash revtunnel-server.sh --list' shows the key it has for port $($c.RemotePort)"
+                Say "       (named $(($pub -split ' ')[2])). Same port and user on both sides? Option 4 of the re-run menu shows the step again."
+            }
         } else {
             Bad "The tunnel is not up: $($s.Detail)"
         }
@@ -584,11 +602,12 @@ while ($true) {
     if ($c.LocalPort -eq 22) {
         $lines += 'To log in to this PC: first log in to the server, then run there:'
         $lines += "    ssh -p $($c.RemotePort) $env:USERNAME@127.0.0.1"
-        $lines += 'Or in one go from your own computer:'
+        $lines += 'Or in one go from your own computer (not this PC), if it can log in to the server as root:'
         $lines += "    ssh -J root@$($c.Host) -p $($c.RemotePort) $env:USERNAME@127.0.0.1"
-        $lines += 'Only the keys allowed in "Who may log in" work (passwords are off).'
+        $lines += 'Only the keys allowed in "Who may log in" work for this PC (passwords are off); the jump'
+        $lines += 'to the server uses your usual login there.'
     } else {
-        $lines += "To reach port $($c.LocalPort) of this PC from your own computer, open a forward through the server:"
+        $lines += "To reach port $($c.LocalPort) of this PC from your own computer (not this PC), open a forward through the server:"
         $lines += "    ssh -L $($c.LocalPort):127.0.0.1:$($c.RemotePort) root@$($c.Host)"
         $lines += "and, while that runs, connect your program to localhost:$($c.LocalPort)."
     }
