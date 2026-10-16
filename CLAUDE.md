@@ -52,8 +52,8 @@ README.md               user workflow (quick start marks WHERE each step happens
 1. Start from the latest: pull before changing anything.
 2. Make the change, then check it:
    - `bash -n revtunnel-linux.sh revtunnel-server.sh`
-   - the `.ps1` with **Windows PowerShell 5.1** on the Windows VM: copy it to the VPS, from there to the
-     VM (`scp -P 2222 ... addohm@127.0.0.1:rt/`), then parse it there with
+   - the `.ps1` with **Windows PowerShell 5.1** on the Windows VM: `scp revtunnel-windows.ps1
+     mihomo-winvm:rt/` (make `C:\Users\addohm\rt` first), then parse it there with
      `[System.Management.Automation.Language.Parser]::ParseFile`.
    - try the changed flow for real: on the VM with a throwaway tunnel (`-Name rtX -LocalPort 3389
      -RemotePort 229X -Server <VPS address> -Yes`; never port 22 there, and never touch the tunnel named
@@ -67,13 +67,13 @@ README.md               user workflow (quick start marks WHERE each step happens
    - this file: when the layout, workflow or conventions change
 4. Commit and push.
 
-Test machines (since 2026-10-16; the earlier Fedora test server is deleted, never connect to its old
-address): the VPS `sgp-vps` (Ubuntu 24.04 in Singapore, root), a `/claude ssh` host of the
-mihomo-proxy-server-tests workspace: `/srv/claude/data/ssh/mihomo-proxy-server-tests/ssh sgp-vps '...'`
-(scp: `-F /srv/claude/data/ssh/mihomo-proxy-server-tests/config`). It is the server side for the Windows 11
-VM in mainland China (`DESKTOP-BJUBIRD`, user `addohm`), whose tunnel `main` is port 2222 there: from the
-VPS, `ssh -p 2222 addohm@127.0.0.1` (root's key `vps-sgp` is allowed on the VM). Keep addresses out of
-the repo.
+Test machines (rebuilt from scratch 2026-10-16 for a fresh-install test; the earlier Fedora test server is
+deleted, never connect to its old address): the VPS `sgp-vps` (Ubuntu 24.04 in Singapore, root), a
+`/claude ssh` host of the mihomo-proxy-server-tests workspace: `/srv/claude/data/ssh/mihomo-proxy-server-tests/ssh
+sgp-vps '...'` (scp: `-F /srv/claude/data/ssh/mihomo-proxy-server-tests/config`). It holds the tunnel `main`
+(port 2222) of the Windows 11 VM in mainland China (`DESKTOP-BJUBIRD`, user `addohm`): `ssh mihomo-winvm`
+(alias in `~/.ssh/config`, ProxyCommand through `sgp-vps`, the workspace key is the VM's login key; root on
+the VPS has no key of its own). Keep addresses out of the repo.
 
 ## Conventions
 
