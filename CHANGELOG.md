@@ -14,6 +14,8 @@ All notable changes to revtunnel. The format follows
   PC; login keys; optional keep-awake, VPNs off and (Windows) Python; status in plain language; a
   re-run menu (reconnect, change server, add login key, show server step, whole setup, remove);
   every answer also an option, `-Yes`/`--yes` for scripts (2026-10-16).
+- Presets can always pass the extras (`-KeepAwake`, `-NoVpn`, `-Python`, `-PythonPackages`; Linux
+  `--keep-awake`, `--no-vpn`) and still get the re-run menu (2026-10-16).
 - Server side (`revtunnel-server.sh`): asks for the PC's key if not given, `--list` (PCs, ports,
   connected or not), `--remove PORT` (2026-10-16).
 - Based on the Windows tester tooling of mihomo-proxy-server-tests (`setup-windows.ps1`,

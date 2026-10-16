@@ -301,7 +301,8 @@ if ($Remove) {
 
 $c = if ($isNew) { [pscustomobject]@{ Host = ''; Port = 22; User = 'tunnel'; RemotePort = 2222; LocalPort = 22; Retries = 0 } }
      else { Get-Content $P.Conf -Raw | ConvertFrom-Json }
-$changeParams = $PSBoundParameters.Keys | Where-Object { $_ -notin 'Name', 'Yes' }
+# extras only apply to a whole setup, so presets that always pass them still get the re-run menu
+$changeParams = $PSBoundParameters.Keys | Where-Object { $_ -notin 'Name', 'Yes', 'KeepAwake', 'NoVpn', 'Python', 'PythonPackages' }
 $action = 'all'
 if (-not $isNew -and -not $Yes -and -not $changeParams) {
     Write-Host ''

@@ -44,8 +44,8 @@ while [ $# -gt 0 ]; do
         --retries) RETRIES_ARG="$2"; CHANGES=1; shift ;;
         --login-user) LOGIN_USER="$2"; CHANGES=1; shift ;;
         --login-key) LOGIN_KEYS+=("$2"); CHANGES=1; shift ;;
-        --keep-awake) KEEP_AWAKE=yes; CHANGES=1 ;;
-        --no-vpn) NO_VPN=yes; CHANGES=1 ;;
+        --keep-awake) KEEP_AWAKE=yes ;;  # extras only apply to a whole setup: no CHANGES, so presets get the menu
+        --no-vpn) NO_VPN=yes ;;
         --yes) YES=1 ;;
         --status) STATUS=1 ;;
         --remove) REMOVE=1 ;;
