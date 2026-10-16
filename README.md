@@ -49,7 +49,7 @@ It goes step by step and explains each one. You'll be asked for:
 |---|---|
 | Tunnel name | Enter (`main`), unless this PC gets several tunnels |
 | Port on this PC | Enter (22, SSH logins), or the port of the program to reach, e.g. 3389 for Remote Desktop |
-| Keys allowed to log in | The *public* SSH key of everyone who should log in to this PC (one line, starting `ssh-ed25519`), e.g. from the server: `cat ~/.ssh/id_ed25519.pub` there. Enter on an empty line when done |
+| Keys allowed to log in | The *public* SSH key (one line, starting `ssh-ed25519`) of each machine that will make the last hop to this PC: usually **your own computer's** (`cat ~/.ssh/id_ed25519.pub` there; see step 5 for why). Enter on an empty line when done |
 | Extras | Keep awake, turn VPNs off, install Python (Windows): yes to what an unattended PC needs |
 | Server address, SSH port, user | The server's IP or name; Enter for 22 and `tunnel` |
 | Port on the server | Enter (2222) for the first PC; every PC on the same server needs its own (2223, ...) |
@@ -71,23 +71,58 @@ Or run `sudo bash revtunnel-server.sh` and paste the PC's key when it asks. It e
 - the PC's **tunnel key** (ends in `revtunnel-NAME-PCNAME`): made by the PC's setup, goes to the
   **server** in this step. It lets the PC hold its tunnel, nothing else.
 - **login keys** (e.g. `~/.ssh/id_ed25519.pub` of a person or of the server): pasted **on the PC** in
-  step 2. They let someone log in to the PC through the tunnel.
+  step 2. They let someone log in to the PC through the tunnel (whose key: see step 5).
 
 ### 4. On the PC: press Enter
 
 Setup connects and ends with **DONE** and how to reach the PC, or explains what is still wrong.
 
-### 5. From anywhere: reach the PC
+### 5. From your own computer: reach the PC
 
-```bash
-ssh root@SERVER                                # log in to the server, then:
-ssh -p 2222 PC_USER@127.0.0.1                  # log in to the PC through the tunnel
+**The rule:** the PC only checks the key of the machine that makes the **last hop** to it. That key must be
+one of the PC's login keys (step 2, or "Allow another key" later). Never run these on the PC itself.
 
-ssh -J root@SERVER -p 2222 PC_USER@127.0.0.1   # or both in one go from your own computer
+**Option A, one command (recommended):** your computer makes both hops, so only **your** key is needed:
+on the server (as you already log in there) and on the PC.
+
+```
+  your computer ───ssh (your key)───> server ──tunnel, port 2222──> PC
+        │                                                            ▲
+        └──────────────── ssh -J: your key again ────────────────────┘
+                     (the last hop is from YOUR computer)
 ```
 
-Run these from the server or from your own computer, never from the PC itself. The login to the PC needs a
-key added in step 2 (e.g. the server's own `~/.ssh/id_ed25519.pub`, for the first form).
+```bash
+ssh -J root@SERVER -p 2222 PC_USER@127.0.0.1
+```
+
+Or put it in `~/.ssh/config` on your computer, then just `ssh mypc`:
+
+```
+Host mypc
+    HostName 127.0.0.1
+    Port 2222
+    User PC_USER
+    ProxyJump root@SERVER
+```
+
+**Option B, two logins:** you log in to the server, and **the server** makes the last hop, so the PC needs
+**the server's** key (make one there with `ssh-keygen -t ed25519`; add its `~/.ssh/id_ed25519.pub` on the
+PC).
+
+```
+  your computer ───ssh (your key)───> server ───ssh (SERVER's key)───> PC
+                                        │                               ▲
+                                        └──── tunnel, port 2222 ────────┘
+```
+
+```bash
+ssh root@SERVER                    # on your computer: log in to the server
+ssh -p 2222 PC_USER@127.0.0.1      # then, on the server: log in to the PC
+```
+
+Option A keeps one key in one place and none on the server; option B is handy when you are on the server
+anyway, or for things that run there.
 
 `PC_USER` is the user setup showed (on Windows, the account that ran it). Only the keys added in step 2
 work: passwords are off on Windows, and on Linux the PC's SSH settings are left as they were.

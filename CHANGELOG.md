@@ -18,6 +18,8 @@ All notable changes to revtunnel. The format follows
 
 ### Changed
 
+- README: how to reach the PC, illustrated: one command with `ssh -J` (your key on the PC) or two
+  logins (the server's key on the PC), and which key the PC checks.
 - The server step downloads `revtunnel-server.sh` with one `curl` line (the repository is public).
 - The server script refuses a key that doesn't look like a PC's tunnel key (asks when run interactively).
 - The server step's banner shows once; later failed checks say what to compare (key ending, `--list`).
