@@ -18,6 +18,14 @@ All notable changes to revtunnel. The format follows
 
 ### Changed
 
+- Wording by role, not by kind of machine (user, 2026-10-17): the **target** (the computer to reach, which
+  opens the tunnel; "this computer" in its own setup) and the **relay** (the machine with a fixed address
+  holding the other end), instead of "PC" and "server". Files renamed to match:
+  `revtunnel-target-windows.cmd` / `.ps1`, `revtunnel-target-linux.sh`, `revtunnel-relay.sh`. New option
+  names `-TargetPort`, `-Relay`, `-RelaySshPort`, `-RelayUser`, `-TunnelPort` (Linux `--target-port`,
+  `--relay`, `--relay-ssh-port`, `--relay-user`, `--tunnel-port`); the old names still work. Existing
+  tunnels keep working unchanged.
+- The login-key step explains whose key to paste: the machine that makes the last hop to the target.
 - README: how to reach the PC, illustrated: one command with `ssh -J` (your key on the PC) or two
   logins (the server's key on the PC), and which key the PC checks.
 - The server step downloads `revtunnel-server.sh` with one `curl` line (the repository is public).

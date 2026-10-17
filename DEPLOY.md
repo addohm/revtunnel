@@ -3,7 +3,7 @@
 There is no service of our own to deploy: the scripts are copied to the machines and run there (see the
 README's quick start). This page lists what they install and change.
 
-## Windows PC (`revtunnel-windows.ps1`)
+## Windows target (`revtunnel-target-windows.ps1`)
 
 - `C:\ProgramData\revtunnel\` (SYSTEM + Administrators only): `setup.log` (installer output), and per
   tunnel `NAME\`: `tunnel.json` (settings), `id_ed25519[.pub]` (the tunnel's key), `known_hosts`,
@@ -15,25 +15,25 @@ README's quick start). This page lists what they install and change.
   `administrators_authorized_keys`.
 - Extras, when chosen: power plan (no sleep/hibernate on AC); disconnected VPN connections and disabled
   VPN/TUN adapters (setup prints how to re-enable each); Python via the Python install manager.
-- A server-step text file on the Desktop while the tunnel isn't up yet.
+- A relay-step text file on the Desktop while the tunnel isn't up yet.
 
-## Linux PC (`revtunnel-linux.sh`)
+## Linux target (`revtunnel-target-linux.sh`)
 
 - `/etc/revtunnel/NAME/` (root only): `tunnel.conf`, `id_ed25519[.pub]`, `known_hosts`, `tunnel.sh`,
-  `server-step.txt` (until the tunnel is up). Log: `/var/log/revtunnel-NAME.log`.
+  `relay-step.txt` (until the tunnel is up). Log: `/var/log/revtunnel-NAME.log`.
 - systemd service **revtunnel-NAME** (enabled; restarted on failure).
 - SSH tunnels: the openssh server package if missing (settings untouched); keys in the login user's
   `~/.ssh/authorized_keys`.
 - Extras, when chosen: `systemctl mask` of the sleep targets; VPN connections (NetworkManager) and
   VPN/TUN interfaces brought down.
 
-## Server (`revtunnel-server.sh`)
+## Relay (`revtunnel-relay.sh`)
 
-- A user (default `tunnel`) with no shell and no password; one line per PC in its
+- A user (default `tunnel`) with no shell and no password; one line per target in its
   `~/.ssh/authorized_keys`.
 - `/etc/ssh/sshd_config.d/41-revtunnel-USER.conf`: a `Match User` block for that user only: remote
   forwards only, and keepalives (15 s × 4) so a dropped tunnel frees its port within a minute. Other
-  logins keep the server's own settings. Needs sshd_config to include `sshd_config.d` (the default on
+  logins keep the relay's own settings. Needs sshd_config to include `sshd_config.d` (the default on
   current distributions). sshd is reloaded, not restarted. (Earlier versions also wrote
   `40-revtunnel.conf` with the keepalives for every login; the script now removes it.)
 
